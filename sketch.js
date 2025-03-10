@@ -526,12 +526,27 @@ function draw() {
   drawTimeSlider();
 }
 
+// Global variables for zooming and panning
+let zoomLevel = 1.0;
+let panOffsetX = 0;
+let panOffsetY = 0;
+let isDragging = false;
+let lastMouseX = 0;
+let lastMouseY = 0;
+let minZoom = 1.0;
+let maxZoom = 5.0;
+let isMouseOverGraph = false;
+
 function drawTimeSeries() {
-  // Set up graph dimensions
-  let graphX = margin + 50;
-  let graphY = margin + 150;
-  let graphWidth = width - 2 * margin - 100;
-  let graphHeight = height - 2 * margin - 150;
+// Set up graph dimensions
+let graphX = margin + 50;
+let graphY = margin + 150;
+let graphWidth = width - 2 * margin - 100;
+let graphHeight = height - 2 * margin - 150;
+
+// Check if mouse is over the graph area
+isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth && 
+                  mouseY >= graphY && mouseY <= graphY + graphHeight;
 
   // Draw graph container with shadow effect
   noStroke();
@@ -697,6 +712,16 @@ function drawTimeSeries() {
   // X-axis label
   text("Date", graphX + graphWidth/2, graphY + graphHeight + 40);
 
+  // Create a clipping area for the graph to prevent drawing outside
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(graphX, graphY, graphWidth, graphHeight);
+  drawingContext.clip();
+  
+  // Calculate the visible area with zoom and pan
+  let visibleStartX = graphX - panOffsetX;
+  let visibleWidth = graphWidth * zoomLevel;
+  
   // Draw area under the curve with gradient
   for (let i = 0; i < visibleData.length - 1; i++) {
     let point = visibleData[i];
@@ -706,10 +731,11 @@ function drawTimeSeries() {
     let timestamp = dateToTimestamp(point.date);
     let nextTimestamp = dateToTimestamp(nextPoint.date);
     
-    let x1 = map(timestamp, startTimestamp, endTimestamp, graphX, graphX + graphWidth);
+    // Apply zoom and pan transformations
+    let x1 = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
     let y1 = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
     
-    let x2 = map(nextTimestamp, startTimestamp, endTimestamp, graphX, graphX + graphWidth);
+    let x2 = map(nextTimestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
     let y2 = map(nextPoint.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
     
     // Draw a gradient-filled quad
@@ -746,10 +772,11 @@ function drawTimeSeries() {
     let timestamp = dateToTimestamp(point.date);
     let nextTimestamp = dateToTimestamp(nextPoint.date);
     
-    let x1 = map(timestamp, startTimestamp, endTimestamp, graphX, graphX + graphWidth);
+    // Apply zoom and pan transformations
+    let x1 = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
     let y1 = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
     
-    let x2 = map(nextTimestamp, startTimestamp, endTimestamp, graphX, graphX + graphWidth);
+    let x2 = map(nextTimestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
     let y2 = map(nextPoint.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
     
     // Get colors based on AQI value
@@ -776,7 +803,8 @@ function drawTimeSeries() {
   for (let i = 0; i < visibleData.length; i++) {
     let point = visibleData[i];
     let timestamp = dateToTimestamp(point.date);
-    let x = map(timestamp, startTimestamp, endTimestamp, graphX, graphX + graphWidth);
+    // Apply the same zoom and pan transformations as for the lines
+    let x = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
     let y = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
     
     // Color points based on AQI level
@@ -848,6 +876,30 @@ function drawTimeSeries() {
     text(`Maximum: ${nf(maxVal, 0, 1)}`, graphX + graphWidth - 120, graphY + 50);
     text(`Minimum: ${nf(minVal, 0, 1)}`, graphX + graphWidth - 120, graphY + 70);
   }
+  
+  // Restore the drawing context to remove the clipping area
+  drawingContext.restore();
+  
+  // Add zoom/pan indicator when mouse is over graph
+  if (isMouseOverGraph) {
+    // Draw zoom instruction at bottom-right of graph
+    fill(0, 0, 0, 160);
+    noStroke();
+    rect(graphX + graphWidth - 285, graphY + graphHeight - 30, 275, 22, 5);
+    textAlign(RIGHT, CENTER);
+    fill(255);
+    textSize(11);
+    text("Mouse wheel: Zoom | Drag: Pan | Double-click: Reset", graphX + graphWidth - 15, graphY + graphHeight - 18);
+    
+    // Change cursor to indicate zoom/pan ability
+    if (isDragging) {
+      cursor('grabbing');
+    } else {
+      cursor('grab');
+    }
+  } else {
+    cursor(ARROW);
+  }
 }
 
 function createColorScale(colors) {
@@ -874,20 +926,66 @@ function mousePressed() {
   let d1 = dist(mouseX, mouseY, startSliderX, sliderY);
   let d2 = dist(mouseX, mouseY, endSliderX, sliderY);
 
-  if (d1 < buttonD / 2) startLocked = true;
-  if (d2 < buttonD / 2) endLocked = true;
+  if (d1 < buttonD / 2) {
+    startLocked = true;
+  } else if (d2 < buttonD / 2) {
+    endLocked = true;
+  } else if (isMouseOverGraph) {
+    // Start dragging the graph
+    isDragging = true;
+    lastMouseX = mouseX;
+    lastMouseY = mouseY;
+    cursor('grab');
+  }
 }
 
 function mouseDragged() {
   if (startLocked) {
     startSliderX = constrain(mouseX, margin, endSliderX - buttonD);
-  }
-  if (endLocked) {
+  } else if (endLocked) {
     endSliderX = constrain(mouseX, startSliderX + buttonD, width - margin);
+  } else if (isDragging) {
+    // Handle panning when dragging over the graph
+    panOffsetX += (mouseX - lastMouseX);
+    panOffsetY += (mouseY - lastMouseY);
+    
+    lastMouseX = mouseX;
+    lastMouseY = mouseY;
+    cursor('grabbing');
   }
 }
 
 function mouseReleased() {
   startLocked = false;
   endLocked = false;
+  
+  if (isDragging) {
+    isDragging = false;
+    cursor(ARROW);
+  }
+}
+
+function mouseWheel(event) {
+  // Only zoom if mouse is over the graph
+  if (isMouseOverGraph) {
+    // Calculate new zoom level
+    let zoomChange = -event.delta / 100;
+    let newZoom = zoomLevel + zoomChange;
+    
+    // Constrain zoom level
+    zoomLevel = constrain(newZoom, minZoom, maxZoom);
+    
+    // Prevent default behavior (page scrolling)
+    return false;
+  }
+}
+
+function doubleClicked() {
+  // Reset zoom and pan if double-clicked on graph
+  if (isMouseOverGraph) {
+    zoomLevel = 1.0;
+    panOffsetX = 0;
+    panOffsetY = 0;
+    return false;
+  }
 }
