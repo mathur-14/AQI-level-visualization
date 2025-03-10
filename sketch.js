@@ -257,7 +257,7 @@ function drawUIElements() {
 
 function setupTimeSlider() {
   // Calculate slider position
-  sliderY = height - 80;
+  sliderY = height - 60;
   startSliderX = margin;
   endSliderX = width - margin;
 
@@ -542,7 +542,7 @@ function drawTimeSeries() {
 let graphX = margin + 50;
 let graphY = margin + 150;
 let graphWidth = width - 2 * margin - 100;
-let graphHeight = height - 2 * margin - 150;
+let graphHeight = height - 2 * margin - 200;
 
 // Check if mouse is over the graph area
 isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth && 
