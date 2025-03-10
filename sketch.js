@@ -1,5 +1,6 @@
 let airQualityData = [];
 let currentView = 'time'; // 'time', 'comparison', 'city-comparison'
+let visualizationType = 'line'; // 'line', 'candle', 'boxplot'
 let selectedState = null;
 let selectedCity = null;
 let selectedPollutant = 'O3 AQI'; // Default pollutant
@@ -165,6 +166,7 @@ function processData() {
 
 // Store UI references globally
 let stateSelect, citySelect, pollutantSelect, viewToggleButton, compareButton, cityListDiv;
+let lineGraphButton, candleButton, boxplotButton; // Visualization type toggle buttons
 
 function createUI() {
   // Create UI elements in setup phase - this separation ensures they're properly initialized
@@ -203,6 +205,46 @@ function createUI() {
   pollutantSelect.changed(() => {
     selectedPollutant = pollutantSelect.value();
   });
+
+  // Create visualization type toggle buttons
+  // Line graph button (default selected)
+  lineGraphButton = createButton('Line');
+  lineGraphButton.position(margin + 730, 47);
+  lineGraphButton.size(60, 20);
+  lineGraphButton.style('font-size', '12px');
+  lineGraphButton.style('z-index', '10');
+  lineGraphButton.style('background-color', visualizationType === 'line' ? colors.primary : colors.lightGray);
+  lineGraphButton.style('color', visualizationType === 'line' ? 'white' : colors.text);
+  lineGraphButton.style('border', 'none');
+  lineGraphButton.style('border-radius', '5px 0 0 5px'); // Rounded left corners only
+  lineGraphButton.style('cursor', 'pointer');
+  lineGraphButton.mousePressed(() => setVisualizationType('line'));
+  
+  // Candle chart button
+  candleButton = createButton('Candle');
+  candleButton.position(margin + 790, 47);
+  candleButton.size(70, 20);
+  candleButton.style('font-size', '12px');
+  candleButton.style('z-index', '10');
+  candleButton.style('background-color', visualizationType === 'candle' ? colors.primary : colors.lightGray);
+  candleButton.style('color', visualizationType === 'candle' ? 'white' : colors.text);
+  candleButton.style('border', 'none');
+  candleButton.style('border-radius', '0');
+  candleButton.style('cursor', 'pointer');
+  candleButton.mousePressed(() => setVisualizationType('candle'));
+  
+  // Box plot button
+  boxplotButton = createButton('Box Plot');
+  boxplotButton.position(margin + 860, 47);
+  boxplotButton.size(70, 20);
+  boxplotButton.style('font-size', '12px');
+  boxplotButton.style('z-index', '10');
+  boxplotButton.style('background-color', visualizationType === 'boxplot' ? colors.primary : colors.lightGray);
+  boxplotButton.style('color', visualizationType === 'boxplot' ? 'white' : colors.text);
+  boxplotButton.style('border', 'none');
+  boxplotButton.style('border-radius', '0 5px 5px 0'); // Rounded right corners only
+  boxplotButton.style('cursor', 'pointer');
+  boxplotButton.mousePressed(() => setVisualizationType('boxplot'));
   
   // Create view toggle button for city comparison
   viewToggleButton = createButton('Compare Cities');
@@ -240,6 +282,23 @@ function createUI() {
   compareButton.style('cursor', 'pointer');
   compareButton.mousePressed(addCityToComparison);
   compareButton.hide(); // Hidden by default
+}
+
+// Function to set visualization type (line, candle, boxplot)
+function setVisualizationType(type) {
+  if (visualizationType === type) return; // No change needed
+  
+  visualizationType = type;
+  
+  // Update button styles
+  lineGraphButton.style('background-color', visualizationType === 'line' ? colors.primary : colors.lightGray);
+  lineGraphButton.style('color', visualizationType === 'line' ? 'white' : colors.text);
+  
+  candleButton.style('background-color', visualizationType === 'candle' ? colors.primary : colors.lightGray);
+  candleButton.style('color', visualizationType === 'candle' ? 'white' : colors.text);
+  
+  boxplotButton.style('background-color', visualizationType === 'boxplot' ? colors.primary : colors.lightGray);
+  boxplotButton.style('color', visualizationType === 'boxplot' ? 'white' : colors.text);
 }
 
 // Function to toggle between normal view and city comparison view
@@ -1062,15 +1121,15 @@ let maxZoom = 5.0;
 let isMouseOverGraph = false;
 
 function drawTimeSeries() {
-// Set up graph dimensions
-let graphX = margin + 50;
-let graphY = margin + 150;
-let graphWidth = width - 2 * margin - 100;
-let graphHeight = height - 2 * margin - 200;
+  // Set up graph dimensions
+  let graphX = margin + 50;
+  let graphY = margin + 150;
+  let graphWidth = width - 2 * margin - 100;
+  let graphHeight = height - 2 * margin - 200;
 
-// Check if mouse is over the graph area
-isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth && 
-                  mouseY >= graphY && mouseY <= graphY + graphHeight;
+  // Check if mouse is over the graph area
+  isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth && 
+                    mouseY >= graphY && mouseY <= graphY + graphHeight;
 
   // Draw graph container with shadow effect
   noStroke();
@@ -1088,7 +1147,16 @@ isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth &&
   textAlign(CENTER, CENTER);
   textStyle(BOLD);
   textSize(16);
-  text(`${selectedPollutant} Levels in ${selectedCity}, ${selectedState}`, 
+  
+  // Add visualization type to the title
+  let vizTypeText = '';
+  if (visualizationType === 'candle') {
+    vizTypeText = ' (Candle Chart)';
+  } else if (visualizationType === 'boxplot') {
+    vizTypeText = ' (Box Plot)';
+  }
+  
+  text(`${selectedPollutant} Levels in ${selectedCity}, ${selectedState}${vizTypeText}`, 
        graphX + graphWidth/2, graphY - 30);
   textStyle(NORMAL);
 
@@ -1246,137 +1314,140 @@ isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth &&
   let visibleStartX = graphX - panOffsetX;
   let visibleWidth = graphWidth * zoomLevel;
   
-  // Draw area under the curve with gradient
-  for (let i = 0; i < visibleData.length - 1; i++) {
-    let point = visibleData[i];
-    let nextPoint = visibleData[i+1];
-    
-    // Calculate positions
-    let timestamp = dateToTimestamp(point.date);
-    let nextTimestamp = dateToTimestamp(nextPoint.date);
-    
-    // Apply zoom and pan transformations
-    let x1 = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
-    let y1 = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
-    
-    let x2 = map(nextTimestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
-    let y2 = map(nextPoint.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
-    
-    // Draw a gradient-filled quad
-    let color1 = colorScale.getColor(point.avgAQI, 0, maxAQI);
-    let color2 = colorScale.getColor(nextPoint.avgAQI, 0, maxAQI);
-    
-    // Make colors semi-transparent
-    color1.setAlpha(100);
-    color2.setAlpha(100);
-    
-    // Draw gradient fill
-    noStroke();
-    beginShape();
-    fill(color1);
-    vertex(x1, y1);
-    fill(color2);
-    vertex(x2, y2);
-    vertex(x2, graphY + graphHeight);
-    fill(color1);
-    vertex(x1, graphY + graphHeight);
-    endShape(CLOSE);
-  }
-
-  // Draw the line with a beautiful curve and gradient
-  noFill();
-  strokeWeight(3);
-  
-  // Create gradient effect for the line
-  for (let i = 0; i < visibleData.length - 1; i++) {
-    let point = visibleData[i];
-    let nextPoint = visibleData[i+1];
-    
-    // Calculate positions
-    let timestamp = dateToTimestamp(point.date);
-    let nextTimestamp = dateToTimestamp(nextPoint.date);
-    
-    // Apply zoom and pan transformations
-    let x1 = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
-    let y1 = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
-    
-    let x2 = map(nextTimestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
-    let y2 = map(nextPoint.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
-    
-    // Get colors based on AQI value
-    let color1 = colorScale.getColor(point.avgAQI, 0, maxAQI);
-    let color2 = colorScale.getColor(nextPoint.avgAQI, 0, maxAQI);
-    
-    // Draw line segment with gradient
-    drawingContext.lineWidth = 3;
-    drawingContext.lineCap = 'round';
-    drawingContext.lineJoin = 'round';
-    
-    let gradient = drawingContext.createLinearGradient(x1, y1, x2, y2);
-    gradient.addColorStop(0, color1);
-    gradient.addColorStop(1, color2);
-    
-    drawingContext.strokeStyle = gradient;
-    drawingContext.beginPath();
-    drawingContext.moveTo(x1, y1);
-    drawingContext.lineTo(x2, y2);
-    drawingContext.stroke();
-  }
-
-  // Draw data points with hover effects
-  for (let i = 0; i < visibleData.length; i++) {
-    let point = visibleData[i];
-    let timestamp = dateToTimestamp(point.date);
-    // Apply the same zoom and pan transformations as for the lines
-    let x = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
-    let y = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
-    
-    // Color points based on AQI level
-    let pointColor = colorScale.getColor(point.avgAQI, 0, maxAQI);
-    
-    // Check if mouse is hovering over point
-    let isHovering = dist(mouseX, mouseY, x, y) < 12;
-    
-    // Draw glow effect for hover
-    if (isHovering) {
-      noFill();
-      stroke(255, 255, 255, 150);
-      strokeWeight(2);
-      ellipse(x, y, 16, 16);
+  // Only draw line graph visualization if selected
+  if (visualizationType === 'line') {
+    // Draw area under the curve with gradient
+    for (let i = 0; i < visibleData.length - 1; i++) {
+      let point = visibleData[i];
+      let nextPoint = visibleData[i+1];
       
-      // Draw outer glow
-      stroke(pointColor);
-      strokeWeight(1);
-      ellipse(x, y, 20, 20);
-    }
-    
-    // Draw data point
-    noStroke();
-    fill(pointColor);
-    ellipse(x, y, isHovering ? 10 : 6, isHovering ? 10 : 6);
-    
-    // Add tooltip on hover with improved styling
-    if (isHovering) {
-      // Draw tooltip background with shadow
-      fill(40, 40, 40, 200);
+      // Calculate positions
+      let timestamp = dateToTimestamp(point.date);
+      let nextTimestamp = dateToTimestamp(nextPoint.date);
+      
+      // Apply zoom and pan transformations
+      let x1 = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+      let y1 = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
+      
+      let x2 = map(nextTimestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+      let y2 = map(nextPoint.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
+      
+      // Draw a gradient-filled quad
+      let color1 = colorScale.getColor(point.avgAQI, 0, maxAQI);
+      let color2 = colorScale.getColor(nextPoint.avgAQI, 0, maxAQI);
+      
+      // Make colors semi-transparent
+      color1.setAlpha(100);
+      color2.setAlpha(100);
+      
+      // Draw gradient fill
       noStroke();
-      rect(x + 15, y - 50, 160, 50, 8);
+      beginShape();
+      fill(color1);
+      vertex(x1, y1);
+      fill(color2);
+      vertex(x2, y2);
+      vertex(x2, graphY + graphHeight);
+      fill(color1);
+      vertex(x1, graphY + graphHeight);
+      endShape(CLOSE);
+    }
+
+    // Draw the line with a beautiful curve and gradient
+    noFill();
+    strokeWeight(3);
+    
+    // Create gradient effect for the line
+    for (let i = 0; i < visibleData.length - 1; i++) {
+      let point = visibleData[i];
+      let nextPoint = visibleData[i+1];
       
-      // Draw tooltip content
-      fill(255);
-      textAlign(LEFT, CENTER);
-      textSize(12);
-      text(`Date: ${point.date}`, x + 25, y - 35);
+      // Calculate positions
+      let timestamp = dateToTimestamp(point.date);
+      let nextTimestamp = dateToTimestamp(nextPoint.date);
       
-      // Format AQI value
-      textStyle(BOLD);
-      text(`${selectedPollutant}: ${nf(point.avgAQI, 0, 1)}`, x + 25, y - 15);
-      textStyle(NORMAL);
+      // Apply zoom and pan transformations
+      let x1 = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+      let y1 = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
       
-      // Draw connecting line
-      stroke(200);
-      strokeWeight(1);
-      line(x + 5, y, x + 15, y - 25);
+      let x2 = map(nextTimestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+      let y2 = map(nextPoint.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
+      
+      // Get colors based on AQI value
+      let color1 = colorScale.getColor(point.avgAQI, 0, maxAQI);
+      let color2 = colorScale.getColor(nextPoint.avgAQI, 0, maxAQI);
+      
+      // Draw line segment with gradient
+      drawingContext.lineWidth = 3;
+      drawingContext.lineCap = 'round';
+      drawingContext.lineJoin = 'round';
+      
+      let gradient = drawingContext.createLinearGradient(x1, y1, x2, y2);
+      gradient.addColorStop(0, color1);
+      gradient.addColorStop(1, color2);
+      
+      drawingContext.strokeStyle = gradient;
+      drawingContext.beginPath();
+      drawingContext.moveTo(x1, y1);
+      drawingContext.lineTo(x2, y2);
+      drawingContext.stroke();
+    }
+
+    // Draw data points with hover effects
+    for (let i = 0; i < visibleData.length; i++) {
+      let point = visibleData[i];
+      let timestamp = dateToTimestamp(point.date);
+      // Apply the same zoom and pan transformations as for the lines
+      let x = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+      let y = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
+      
+      // Color points based on AQI level
+      let pointColor = colorScale.getColor(point.avgAQI, 0, maxAQI);
+      
+      // Check if mouse is hovering over point
+      let isHovering = dist(mouseX, mouseY, x, y) < 12;
+      
+      // Draw glow effect for hover
+      if (isHovering) {
+        noFill();
+        stroke(255, 255, 255, 150);
+        strokeWeight(2);
+        ellipse(x, y, 16, 16);
+        
+        // Draw outer glow
+        stroke(pointColor);
+        strokeWeight(1);
+        ellipse(x, y, 20, 20);
+      }
+      
+      // Draw data point
+      noStroke();
+      fill(pointColor);
+      ellipse(x, y, isHovering ? 10 : 6, isHovering ? 10 : 6);
+      
+      // Add tooltip on hover with improved styling
+      if (isHovering) {
+        // Draw tooltip background with shadow
+        fill(40, 40, 40, 200);
+        noStroke();
+        rect(x + 15, y - 50, 160, 50, 8);
+        
+        // Draw tooltip content
+        fill(255);
+        textAlign(LEFT, CENTER);
+        textSize(12);
+        text(`Date: ${point.date}`, x + 25, y - 35);
+        
+        // Format AQI value
+        textStyle(BOLD);
+        text(`${selectedPollutant}: ${nf(point.avgAQI, 0, 1)}`, x + 25, y - 15);
+        textStyle(NORMAL);
+        
+        // Draw connecting line
+        stroke(200);
+        strokeWeight(1);
+        line(x + 5, y, x + 15, y - 25);
+      }
     }
   }
   
@@ -1401,6 +1472,17 @@ isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth &&
     text(`Minimum: ${nf(minVal, 0, 1)}`, graphX + graphWidth - 120, graphY + 70);
   }
   
+  // Draw different visualization types based on selected option
+  if (visualizationType === 'line') {
+    // Line graph with area - Already implemented above
+  } else if (visualizationType === 'candle') {
+    // Draw candle chart - group data by month
+    drawCandleChart(graphX, graphY, graphWidth, graphHeight, visibleData, maxAQI, startTimestamp, endTimestamp, visibleStartX, visibleWidth);
+  } else if (visualizationType === 'boxplot') {
+    // Draw box plot - group data by month
+    drawBoxPlot(graphX, graphY, graphWidth, graphHeight, visibleData, maxAQI, startTimestamp, endTimestamp, visibleStartX, visibleWidth);
+  }
+
   // Restore the drawing context to remove the clipping area
   drawingContext.restore();
   
@@ -1512,4 +1594,255 @@ function doubleClicked() {
     panOffsetY = 0;
     return false;
   }
+}
+
+// Function to draw a candle chart
+function drawCandleChart(graphX, graphY, graphWidth, graphHeight, visibleData, maxAQI, startTimestamp, endTimestamp, visibleStartX, visibleWidth) {
+  // Only draw candles if visualization type is 'candle'
+  if (visualizationType !== 'candle') return;
+  
+  // First, group data by month and year
+  let monthlyData = {};
+  
+  visibleData.forEach(point => {
+    let date = new Date(point.date);
+    let yearMonth = `${date.getFullYear()}-${date.getMonth() + 1}`;
+    
+    if (!monthlyData[yearMonth]) {
+      monthlyData[yearMonth] = {
+        values: [],
+        timestamp: date.getTime(), // Use first date of month for positioning
+        month: date.getMonth() + 1,
+        year: date.getFullYear(),
+        dateStr: yearMonth
+      };
+    }
+    
+    monthlyData[yearMonth].values.push(point.avgAQI);
+  });
+  
+  // Calculate candle properties for each month
+  Object.values(monthlyData).forEach(monthData => {
+    if (monthData.values.length > 0) {
+      monthData.values.sort((a, b) => a - b);
+      monthData.open = monthData.values[0]; // first value
+      monthData.close = monthData.values[monthData.values.length - 1]; // last value
+      monthData.low = Math.min(...monthData.values); // minimum value
+      monthData.high = Math.max(...monthData.values); // maximum value
+      
+      // Determine if the candle is up or down
+      monthData.isUp = monthData.close >= monthData.open;
+    }
+  });
+  
+  // Draw candles
+  let candleWidth = Math.min(40, graphWidth / Object.keys(monthlyData).length / 2);
+  
+  Object.values(monthlyData).forEach(monthData => {
+    // Calculate candle position
+    let x = map(monthData.timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+    
+    // Skip if candle is outside visible area
+    if (x < graphX - candleWidth || x > graphX + graphWidth + candleWidth) return;
+    
+    // Map values to y coordinates
+    let highY = map(monthData.high, 0, maxAQI, graphY + graphHeight, graphY);
+    let lowY = map(monthData.low, 0, maxAQI, graphY + graphHeight, graphY);
+    let openY = map(monthData.open, 0, maxAQI, graphY + graphHeight, graphY);
+    let closeY = map(monthData.close, 0, maxAQI, graphY + graphHeight, graphY);
+    
+    // Choose color based on price movement
+    let candleColor = monthData.isUp ? color(46, 204, 113) : color(231, 76, 60); // Green for up, red for down
+    
+    // Draw the candle wick (high to low line)
+    stroke(100);
+    strokeWeight(1);
+    line(x, highY, x, lowY);
+    
+    // Draw the candle body
+    noStroke();
+    fill(candleColor);
+    let bodyTop = min(openY, closeY);
+    let bodyBottom = max(openY, closeY);
+    let bodyHeight = bodyBottom - bodyTop;
+    // Ensure minimum height for visibility
+    if (bodyHeight < 2) bodyHeight = 2;
+    rect(x - candleWidth/2, bodyTop, candleWidth, bodyHeight);
+    
+    // Add month label
+    if (x > graphX && x < graphX + graphWidth) {
+      let labelY = lowY + 15;
+      if (labelY > graphY + graphHeight - 5) labelY = graphY + graphHeight - 5;
+      
+      noStroke();
+      fill(100);
+      textAlign(CENTER, TOP);
+      textSize(9);
+      text(`${monthData.month}/${monthData.year}`, x, graphY + graphHeight + 5);
+    }
+    
+    // Add hover effect and tooltip
+    if (mouseX > x - candleWidth/2 && mouseX < x + candleWidth/2 && 
+        mouseY > highY && mouseY < lowY) {
+      // Highlight candle on hover
+      stroke(255);
+      strokeWeight(1);
+      noFill();
+      rect(x - candleWidth/2 - 2, bodyTop - 2, candleWidth + 4, bodyHeight + 4);
+      
+      // Draw tooltip
+      let tooltipX = x + candleWidth/2 + 10;
+      let tooltipY = (bodyTop + bodyBottom) / 2;
+      
+      fill(40, 40, 40, 220);
+      noStroke();
+      rect(tooltipX, tooltipY - 45, 140, 90, 5);
+      
+      fill(255);
+      textAlign(LEFT, CENTER);
+      textSize(11);
+      text(`Month: ${monthData.month}/${monthData.year}`, tooltipX + 10, tooltipY - 30);
+      text(`Open: ${nf(monthData.open, 0, 1)}`, tooltipX + 10, tooltipY - 15);
+      text(`Close: ${nf(monthData.close, 0, 1)}`, tooltipX + 10, tooltipY);
+      text(`High: ${nf(monthData.high, 0, 1)}`, tooltipX + 10, tooltipY + 15);
+      text(`Low: ${nf(monthData.low, 0, 1)}`, tooltipX + 10, tooltipY + 30);
+    }
+  });
+}
+
+// Function to draw a box plot
+function drawBoxPlot(graphX, graphY, graphWidth, graphHeight, visibleData, maxAQI, startTimestamp, endTimestamp, visibleStartX, visibleWidth) {
+  // Only draw box plots if visualization type is 'boxplot'
+  if (visualizationType !== 'boxplot') return;
+  
+  // First, group data by month and year
+  let monthlyData = {};
+  
+  visibleData.forEach(point => {
+    let date = new Date(point.date);
+    let yearMonth = `${date.getFullYear()}-${date.getMonth() + 1}`;
+    
+    if (!monthlyData[yearMonth]) {
+      monthlyData[yearMonth] = {
+        values: [],
+        timestamp: date.getTime(), // Use first date of month for positioning
+        month: date.getMonth() + 1,
+        year: date.getFullYear(),
+        dateStr: yearMonth
+      };
+    }
+    
+    monthlyData[yearMonth].values.push(point.avgAQI);
+  });
+  
+  // Calculate box plot properties for each month
+  Object.values(monthlyData).forEach(monthData => {
+    if (monthData.values.length > 0) {
+      // Sort values for percentile calculations
+      monthData.values.sort((a, b) => a - b);
+      
+      const count = monthData.values.length;
+      
+      // Calculate quartiles and median
+      monthData.min = monthData.values[0];
+      monthData.max = monthData.values[count - 1];
+      monthData.median = count % 2 === 0 
+        ? (monthData.values[count/2 - 1] + monthData.values[count/2]) / 2
+        : monthData.values[Math.floor(count/2)];
+        
+      // First quartile (Q1)
+      const q1Index = Math.floor(count * 0.25);
+      monthData.q1 = monthData.values[q1Index];
+      
+      // Third quartile (Q3)
+      const q3Index = Math.floor(count * 0.75);
+      monthData.q3 = monthData.values[q3Index];
+      
+      // Interquartile range (IQR)
+      monthData.iqr = monthData.q3 - monthData.q1;
+    }
+  });
+  
+  // Draw box plots
+  let boxWidth = Math.min(40, graphWidth / Object.keys(monthlyData).length / 2);
+  
+  Object.values(monthlyData).sort((a, b) => a.timestamp - b.timestamp).forEach(monthData => {
+    // Skip if not enough data points
+    if (monthData.values.length < 5) return;
+    
+    // Calculate box position
+    let x = map(monthData.timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+    
+    // Skip if box is outside visible area
+    if (x < graphX - boxWidth || x > graphX + graphWidth + boxWidth) return;
+    
+    // Map values to y coordinates
+    let minY = map(monthData.min, 0, maxAQI, graphY + graphHeight, graphY);
+    let maxY = map(monthData.max, 0, maxAQI, graphY + graphHeight, graphY);
+    let q1Y = map(monthData.q1, 0, maxAQI, graphY + graphHeight, graphY);
+    let q3Y = map(monthData.q3, 0, maxAQI, graphY + graphHeight, graphY);
+    let medianY = map(monthData.median, 0, maxAQI, graphY + graphHeight, graphY);
+    
+    // Draw the whiskers (vertical lines from min to Q1 and Q3 to max)
+    stroke(100);
+    strokeWeight(1);
+    // Lower whisker
+    line(x, q1Y, x, minY);
+    // Upper whisker
+    line(x, q3Y, x, maxY);
+    
+    // Draw horizontal caps at ends of whiskers
+    let whiskerWidth = boxWidth / 3;
+    // Min cap
+    line(x - whiskerWidth, minY, x + whiskerWidth, minY);
+    // Max cap
+    line(x - whiskerWidth, maxY, x + whiskerWidth, maxY);
+    
+    // Draw the box (rectangle from Q1 to Q3)
+    let boxColor = color(52, 152, 219, 200);  // Semi-transparent blue
+    fill(boxColor);
+    rect(x - boxWidth/2, q3Y, boxWidth, q1Y - q3Y);
+    
+    // Draw the median line
+    stroke(30);
+    strokeWeight(1.5);
+    line(x - boxWidth/2, medianY, x + boxWidth/2, medianY);
+    
+    // Add month label
+    if (x > graphX && x < graphX + graphWidth) {
+      noStroke();
+      fill(100);
+      textAlign(CENTER, TOP);
+      textSize(9);
+      text(`${monthData.month}/${monthData.year}`, x, graphY + graphHeight + 5);
+    }
+    
+    // Add hover effect and tooltip
+    if (mouseX > x - boxWidth/2 && mouseX < x + boxWidth/2 && 
+        mouseY > maxY && mouseY < minY) {
+      // Highlight box on hover
+      stroke(255);
+      strokeWeight(1);
+      noFill();
+      rect(x - boxWidth/2 - 2, q3Y - 2, boxWidth + 4, q1Y - q3Y + 4);
+      
+      // Draw tooltip
+      let tooltipX = x + boxWidth/2 + 10;
+      let tooltipY = (q1Y + q3Y) / 2;
+      
+      fill(40, 40, 40, 220);
+      noStroke();
+      rect(tooltipX, tooltipY - 45, 140, 100, 5);
+      
+      fill(255);
+      textAlign(LEFT, CENTER);
+      textSize(11);
+      text(`Month: ${monthData.month}/${monthData.year}`, tooltipX + 10, tooltipY - 30);
+      text(`Min: ${nf(monthData.min, 0, 1)}`, tooltipX + 10, tooltipY - 15);
+      text(`Q1: ${nf(monthData.q1, 0, 1)}`, tooltipX + 10, tooltipY);
+      text(`Median: ${nf(monthData.median, 0, 1)}`, tooltipX + 10, tooltipY + 15);
+      text(`Q3: ${nf(monthData.q3, 0, 1)}`, tooltipX + 10, tooltipY + 30);
+      text(`Max: ${nf(monthData.max, 0, 1)}`, tooltipX + 10, tooltipY + 45);
+    }
+  });
 }
