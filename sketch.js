@@ -1,5 +1,5 @@
 let airQualityData = [];
-let currentView = 'time'; // 'time', 'comparison'
+let currentView = 'time'; // 'time', 'comparison', 'city-comparison'
 let selectedState = null;
 let selectedCity = null;
 let selectedPollutant = 'O3 AQI'; // Default pollutant
@@ -164,7 +164,7 @@ function processData() {
 }
 
 // Store UI references globally
-let stateSelect, citySelect, pollutantSelect;
+let stateSelect, citySelect, pollutantSelect, viewToggleButton, compareButton, cityListDiv;
 
 function createUI() {
   // Create UI elements in setup phase - this separation ensures they're properly initialized
@@ -203,6 +203,150 @@ function createUI() {
   pollutantSelect.changed(() => {
     selectedPollutant = pollutantSelect.value();
   });
+  
+  // Create view toggle button for city comparison
+  viewToggleButton = createButton('Compare Cities');
+  viewToggleButton.position(margin + 730, 20);
+  viewToggleButton.size(120, 25);
+  viewToggleButton.style('font-size', '12px');
+  viewToggleButton.style('z-index', '10');
+  viewToggleButton.style('background-color', colors.secondary);
+  viewToggleButton.style('color', 'white');
+  viewToggleButton.style('border', 'none');
+  viewToggleButton.style('border-radius', '5px');
+  viewToggleButton.style('cursor', 'pointer');
+  viewToggleButton.mousePressed(toggleCityComparisonView);
+  
+// Create a div to display selected cities as inline buttons
+  cityListDiv = createDiv('');
+  cityListDiv.position(margin + 350, 100);
+  cityListDiv.size(width - margin - 450, 30);
+  cityListDiv.style('z-index', '10');
+  cityListDiv.style('display', 'none'); // Hidden by default
+  cityListDiv.style('overflow-x', 'auto');
+  cityListDiv.style('white-space', 'nowrap');
+  cityListDiv.style('vertical-align', 'middle');
+  
+  // Add city button
+  compareButton = createButton('Add City to Compare');
+  compareButton.position(margin + 900, 20);
+  compareButton.size(150, 25);
+  compareButton.style('font-size', '12px');
+  compareButton.style('z-index', '10');
+  compareButton.style('background-color', colors.accent);
+  compareButton.style('color', 'white');
+  compareButton.style('border', 'none');
+  compareButton.style('border-radius', '5px');
+  compareButton.style('cursor', 'pointer');
+  compareButton.mousePressed(addCityToComparison);
+  compareButton.hide(); // Hidden by default
+}
+
+// Function to toggle between normal view and city comparison view
+function toggleCityComparisonView() {
+  if (currentView !== 'city-comparison') {
+    currentView = 'city-comparison';
+    viewToggleButton.html('Single City View');
+    viewToggleButton.style('background-color', colors.primary);
+    compareButton.show();
+    cityListDiv.style('display', 'block');
+    updateCityListDisplay();
+  } else {
+    currentView = 'time';
+    viewToggleButton.html('Compare Cities');
+    viewToggleButton.style('background-color', colors.secondary);
+    compareButton.hide();
+    cityListDiv.style('display', 'none');
+  }
+}
+
+// Function to add the currently selected city to the comparison list
+function addCityToComparison() {
+  if (!selectedState || !selectedCity || selectedCity === 'Select City') {
+    // Display error message if no city is selected
+    alert('Please select a state and city first');
+    return;
+  }
+  
+  // Create a city object with state and city information
+  const cityObj = {
+    state: selectedState,
+    city: selectedCity,
+    color: getRandomColor() // Assign a random color for the city line
+  };
+  
+  // Check if this city is already in the comparison list
+  const cityExists = selectedCities.some(c => 
+    c.state === cityObj.state && c.city === cityObj.city
+  );
+  
+  if (!cityExists) {
+    // Add the city to the list if it's not already there
+    selectedCities.push(cityObj);
+    updateCityListDisplay();
+  }
+}
+
+// Function to remove a city from the comparison list
+function removeCityFromComparison(index) {
+  selectedCities.splice(index, 1);
+  updateCityListDisplay();
+}
+
+// Function to update the display of selected cities
+function updateCityListDisplay() {
+  cityListDiv.html(''); // Clear the current list
+  
+  if (selectedCities.length === 0) {
+    return; // No need to show anything if no cities are selected
+  }
+  
+  // Add each city as an inline button
+  selectedCities.forEach((cityObj, index) => {
+    // Create the city button
+    const cityButton = createButton(`${cityObj.city}, ${cityObj.state} ✕`);
+    cityButton.parent(cityListDiv);
+    cityButton.style('margin', '0 5px');
+    cityButton.style('padding', '4px 8px');
+    cityButton.style('background-color', cityObj.color);
+    cityButton.style('color', 'white');
+    cityButton.style('border', 'none');
+    cityButton.style('border-radius', '15px');
+    cityButton.style('font-size', '11px');
+    cityButton.style('cursor', 'pointer');
+    cityButton.style('display', 'inline-block');
+    cityButton.mousePressed(() => removeCityFromComparison(index));
+  });
+}
+
+// Function to generate random colors for city lines
+function getRandomColor() {
+  const colorOptions = [
+    '#3498db', // Blue
+    '#e74c3c', // Red
+    '#2ecc71', // Green
+    '#f1c40f', // Yellow
+    '#9b59b6', // Purple
+    '#e67e22', // Orange
+    '#1abc9c', // Teal
+    '#34495e'  // Dark blue
+  ];
+  
+  // Try to find a color that's not already in use
+  const usedColors = selectedCities.map(c => c.color);
+  const availableColors = colorOptions.filter(c => !usedColors.includes(c));
+  
+  if (availableColors.length > 0) {
+    return availableColors[floor(random(availableColors.length))];
+  } else {
+    // If all colors are used, return a random one with slight variation
+    const baseColor = colorOptions[floor(random(colorOptions.length))];
+    return color(
+      red(baseColor) + random(-20, 20),
+      green(baseColor) + random(-20, 20),
+      blue(baseColor) + random(-20, 20)
+    ).toString();
+  }
 }
 
 function drawUIElements() {
@@ -492,21 +636,46 @@ function draw() {
   textStyle(NORMAL);
   fill(colors.text);
   textSize(14);
-  text('Select a state, city, and pollutant to explore the data', margin, 100);
+  
+  // Draw the UI elements (decorative elements behind dropdowns)
+  drawUIElements();
+  
+// Change instructions based on the current view
+  if (currentView === 'city-comparison') {
+    text('Select cities to compare their Air Quality Index data:', margin+60, 100);
+  } else {
+    text('Select a state, city, and pollutant to explore the data', margin+60, 100);
+  }
   
   // Add a subtle divider line
   stroke(colors.midGray);
   strokeWeight(1);
   line(margin, 130, width - margin, 130);
   
-  // Draw the UI elements (decorative elements behind dropdowns)
-  drawUIElements();
-  
-  // Draw the current view
-  if (selectedCity && selectedPollutant) {
+  // Draw the appropriate view based on currentView
+  if (currentView === 'city-comparison') {
+    if (selectedCities.length > 0) {
+      drawCityComparison();
+    } else {
+      // Show instruction when no cities are selected for comparison
+      noStroke();
+      fill(colors.darkGray);
+      textAlign(CENTER, CENTER);
+      textSize(16);
+      text("Please add cities to compare their air quality data", width/2, height/2 - 60);
+      
+      // Draw a small icon or visual cue with beautiful animation
+      let pulse = sin(frameCount * 0.05) * 5; // Pulsing effect
+      fill(colors.accent);
+      ellipse(width/2, height/2, 40 + pulse, 40 + pulse);
+      fill(255);
+      textSize(18);
+      text("⟷", width/2, height/2);
+    }
+  } else if (selectedCity && selectedPollutant) {
     drawTimeSeries();
   } else {
-    // Show instruction when no data is selected
+    // Show instruction when no data is selected for single city view
     noStroke();
     fill(colors.darkGray);
     textAlign(CENTER, CENTER);
@@ -524,6 +693,361 @@ function draw() {
 
   // Draw the time slider
   drawTimeSlider();
+}
+
+// Function to draw the city comparison graph
+function drawCityComparison() {
+  // Set up graph dimensions - same as in drawTimeSeries()
+  let graphX = margin + 50;
+  let graphY = margin + 150;
+  let graphWidth = width - 2 * margin - 100;
+  let graphHeight = height - 2 * margin - 200;
+
+  // Check if mouse is over the graph area
+  isMouseOverGraph = mouseX >= graphX && mouseX <= graphX + graphWidth && 
+                    mouseY >= graphY && mouseY <= graphY + graphHeight;
+
+  // Draw graph container with shadow effect
+  noStroke();
+  fill(210, 210, 210, 80); // Shadow
+  rect(graphX + 5, graphY + 5, graphWidth, graphHeight, 8);
+  
+  // Draw graph background
+  fill(colors.graphBackground);
+  stroke(colors.midGray);
+  strokeWeight(1);
+  rect(graphX, graphY, graphWidth, graphHeight, 8);
+  
+  // Add graph title with styling
+  fill(colors.text);
+  textAlign(CENTER, CENTER);
+  textStyle(BOLD);
+  textSize(16);
+  text(`${selectedPollutant} Comparison Across Cities`, 
+       graphX + graphWidth/2, graphY - 30);
+  textStyle(NORMAL);
+
+  // Find max AQI across all selected cities for consistent scale
+  let maxAQI = 0;
+  let allCityData = {};
+  
+  // Process data for each selected city
+  selectedCities.forEach(cityObj => {
+    // Filter data for the current city and selected pollutant
+    let filteredData = airQualityData.rows.filter(row => {
+      return row.getString('City') === cityObj.city && 
+             row.getString('State') === cityObj.state;
+    });
+
+    // Group data by date
+    let dateAQI = {};
+    
+    filteredData.forEach(row => {
+      let date = row.getString('Date');
+      let aqi = row.getNum(selectedPollutant);
+      
+      if (!dateAQI[date]) {
+        dateAQI[date] = [];
+      }
+      dateAQI[date].push(aqi);
+      
+      // Update overall max AQI
+      if (aqi > maxAQI) {
+        maxAQI = aqi;
+      }
+    });
+    
+    // Convert to average AQI by date
+    let sortedDates = Object.keys(dateAQI).sort((a, b) => new Date(a) - new Date(b));
+    let cityTimeSeriesData = sortedDates.map(date => ({
+      date: date,
+      avgAQI: dateAQI[date].reduce((sum, val) => sum + val, 0) / dateAQI[date].length
+    }));
+    
+    // Store processed data for this city
+    allCityData[`${cityObj.city}, ${cityObj.state}`] = {
+      data: cityTimeSeriesData,
+      color: cityObj.color
+    };
+  });
+  
+  // Ensure maxAQI is at least 50 for better visualization
+  maxAQI = max(maxAQI, 50);
+  
+  // Combine all dates across all cities
+  let allDates = new Set();
+  Object.values(allCityData).forEach(cityData => {
+    cityData.data.forEach(point => allDates.add(point.date));
+  });
+  
+  // Convert dates to array and sort chronologically
+  let sortedAllDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
+  
+  // Filter dates based on time slider
+  let startDateIdx = floor(map(timeRange[0], 0, 100, 0, sortedAllDates.length - 1));
+  let endDateIdx = floor(map(timeRange[1], 0, 100, 0, sortedAllDates.length - 1));
+  startDateIdx = constrain(startDateIdx, 0, sortedAllDates.length - 1);
+  endDateIdx = constrain(endDateIdx, 0, sortedAllDates.length - 1);
+  
+  let visibleDates = sortedAllDates.slice(startDateIdx, endDateIdx + 1);
+  
+  if (visibleDates.length === 0) {
+    fill(colors.darkGray);
+    textSize(14);
+    textAlign(CENTER, CENTER);
+    text("No data available for this period", graphX + graphWidth / 2, graphY + graphHeight / 2);
+    return;
+  }
+  
+  // Define date-to-timestamp function for mapping
+  function dateToTimestamp(dateStr) {
+    return new Date(dateStr).getTime();
+  }
+  
+  // Get timestamp range for mapping
+  let startTimestamp = dateToTimestamp(visibleDates[0]);
+  let endTimestamp = dateToTimestamp(visibleDates[visibleDates.length - 1]);
+  
+  // Draw grid lines
+  stroke(240);
+  strokeWeight(1);
+  
+  // Horizontal grid lines
+  let yTicks = 5;
+  for (let i = 0; i <= yTicks; i++) {
+    let y = map(i, 0, yTicks, graphY + graphHeight, graphY);
+    line(graphX, y, graphX + graphWidth, y);
+  }
+  
+  // Vertical grid lines
+  let xTicks = 10;
+  for (let i = 0; i <= xTicks; i++) {
+    let x = map(i, 0, xTicks, graphX, graphX + graphWidth);
+    line(x, graphY, x, graphY + graphHeight);
+  }
+  
+  // Draw x-axis
+  stroke(colors.darkGray);
+  strokeWeight(2);
+  line(graphX, graphY + graphHeight, graphX + graphWidth, graphY + graphHeight);
+  
+  // Draw x-axis labels
+  noStroke();
+  fill(colors.text);
+  textAlign(CENTER);
+  textSize(10);
+  
+  let dateInterval = max(1, floor(visibleDates.length / 5)); // Show about 5 date labels
+  for (let i = 0; i < visibleDates.length; i += dateInterval) {
+    let timestamp = dateToTimestamp(visibleDates[i]);
+    let x = map(timestamp, startTimestamp, endTimestamp, graphX, graphX + graphWidth);
+    
+    // Draw tick
+    stroke(colors.darkGray);
+    line(x, graphY + graphHeight, x, graphY + graphHeight + 5);
+    
+    // Draw date label
+    noStroke();
+    push();
+    translate(x, graphY + graphHeight + 15);
+    rotate(PI / 4); // Rotate text to avoid overlap
+    text(visibleDates[i], 0, 0);
+    pop();
+  }
+  
+  // Draw y-axis
+  stroke(colors.darkGray);
+  strokeWeight(2);
+  line(graphX, graphY, graphX, graphY + graphHeight);
+  
+  // Draw y-axis labels with better formatting
+  noStroke();
+  fill(colors.text);
+  textAlign(RIGHT);
+  textSize(10);
+  
+  for (let i = 0; i <= yTicks; i++) {
+    let y = map(i, 0, yTicks, graphY + graphHeight, graphY);
+    let value = int(map(i, 0, yTicks, 0, maxAQI));
+    
+    // Draw tick
+    stroke(colors.darkGray);
+    line(graphX - 5, y, graphX, y);
+    
+    // Draw label
+    noStroke();
+    text(value, graphX - 10, y);
+  }
+  
+  // Draw axes labels
+  fill(colors.text);
+  textAlign(CENTER, CENTER);
+  textSize(12);
+  
+  // Y-axis label
+  push();
+  translate(graphX - 40, graphY + graphHeight/2);
+  rotate(-PI/2);
+  text(`${selectedPollutant} Level`, 0, 0);
+  pop();
+  
+  // X-axis label
+  text("Date", graphX + graphWidth/2, graphY + graphHeight + 40);
+  
+  // Create a clipping area for the graph to prevent drawing outside
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(graphX, graphY, graphWidth, graphHeight);
+  drawingContext.clip();
+  
+  // Calculate the visible area with zoom and pan
+  let visibleStartX = graphX - panOffsetX;
+  let visibleWidth = graphWidth * zoomLevel;
+  
+  // Draw lines for each city
+  Object.entries(allCityData).forEach(([cityName, cityData]) => {
+    // Skip if no data points
+    if (!cityData.data || cityData.data.length === 0) return;
+    
+    // Filter data to match visible dates
+    let cityVisibleData = cityData.data.filter(point => 
+      visibleDates.includes(point.date)
+    );
+    
+    // Skip if no visible data points
+    if (cityVisibleData.length === 0) return;
+    
+    // Sort data by date
+    cityVisibleData.sort((a, b) => dateToTimestamp(a.date) - dateToTimestamp(b.date));
+    
+    // Draw the line
+    stroke(cityData.color);
+    strokeWeight(2);
+    noFill();
+    beginShape();
+    
+    for (let i = 0; i < cityVisibleData.length; i++) {
+      let point = cityVisibleData[i];
+      let timestamp = dateToTimestamp(point.date);
+      
+      // Apply zoom and pan transformations
+      let x = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+      let y = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
+      
+      vertex(x, y);
+    }
+    endShape();
+    
+    // Draw data points
+    for (let i = 0; i < cityVisibleData.length; i++) {
+      let point = cityVisibleData[i];
+      let timestamp = dateToTimestamp(point.date);
+      
+      // Apply zoom and pan transformations
+      let x = map(timestamp, startTimestamp, endTimestamp, visibleStartX, visibleStartX + visibleWidth);
+      let y = map(point.avgAQI, 0, maxAQI, graphY + graphHeight, graphY);
+      
+      // Check if mouse is hovering over point
+      let isHovering = dist(mouseX, mouseY, x, y) < 8;
+      
+      // Draw point
+      if (isHovering) {
+        // Draw larger point and glow effect when hovering
+        stroke(255);
+        strokeWeight(1);
+        fill(cityData.color);
+        ellipse(x, y, 10, 10);
+        
+        // Draw tooltip
+        fill(40, 40, 40, 220);
+        noStroke();
+        rect(x + 15, y - 60, 180, 50, 8);
+        
+        // Draw tooltip content
+        fill(255);
+        textAlign(LEFT, CENTER);
+        textSize(12);
+        text(`City: ${cityName}`, x + 25, y - 45);
+        text(`Date: ${point.date}`, x + 25, y - 30);
+        textStyle(BOLD);
+        text(`${selectedPollutant}: ${nf(point.avgAQI, 0, 1)}`, x + 25, y - 15);
+        textStyle(NORMAL);
+        
+        // Draw connecting line
+        stroke(cityData.color);
+        strokeWeight(1);
+        line(x + 5, y, x + 15, y - 35);
+      } else {
+        // Draw normal point
+        noStroke();
+        fill(cityData.color);
+        ellipse(x, y, 5, 5);
+      }
+    }
+  });
+  
+  // Restore the drawing context to remove the clipping area
+  drawingContext.restore();
+  
+  // Draw city legend
+  let legendX = graphX + graphWidth - 150;
+  let legendY = graphY + 10;
+  let legendWidth = 140;
+  let legendHeight = selectedCities.length * 25 + 10;
+  
+  // Draw legend background
+  fill(255, 255, 255, 200);
+  stroke(colors.midGray);
+  strokeWeight(1);
+  rect(legendX, legendY, legendWidth, legendHeight, 5);
+  
+  // Draw legend title
+  fill(colors.text);
+  noStroke();
+  textAlign(LEFT, CENTER);
+  textSize(12);
+  textStyle(BOLD);
+  text("Cities", legendX + 10, legendY + 15);
+  textStyle(NORMAL);
+  
+  // Draw legend items
+  selectedCities.forEach((cityObj, index) => {
+    let itemY = legendY + 30 + index * 25;
+    
+    // Draw color box
+    fill(cityObj.color);
+    stroke(colors.midGray);
+    strokeWeight(1);
+    rect(legendX + 10, itemY - 8, 16, 16, 3);
+    
+    // Draw city name
+    fill(colors.text);
+    noStroke();
+    textAlign(LEFT, CENTER);
+    textSize(11);
+    text(`${cityObj.city}, ${cityObj.state}`, legendX + 35, itemY);
+  });
+  
+  // Add zoom/pan indicator when mouse is over graph
+  if (isMouseOverGraph) {
+    // Draw zoom instruction at bottom-right of graph
+    fill(0, 0, 0, 160);
+    noStroke();
+    rect(graphX + graphWidth - 285, graphY + graphHeight - 30, 275, 22, 5);
+    textAlign(RIGHT, CENTER);
+    fill(255);
+    textSize(11);
+    text("Mouse wheel: Zoom | Drag: Pan | Double-click: Reset", graphX + graphWidth - 15, graphY + graphHeight - 18);
+    
+    // Change cursor to indicate zoom/pan ability
+    if (isDragging) {
+      cursor('grabbing');
+    } else {
+      cursor('grab');
+    }
+  } else {
+    cursor(ARROW);
+  }
 }
 
 // Global variables for zooming and panning
