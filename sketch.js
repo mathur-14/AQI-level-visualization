@@ -221,9 +221,9 @@ function createUI() {
   lineGraphButton.mousePressed(() => setVisualizationType('line'));
   
   // Candle chart button
-  candleButton = createButton('Candle');
+  candleButton = createButton('Bar');
   candleButton.position(margin + 790, 47);
-  candleButton.size(70, 20);
+  candleButton.size(60, 20);
   candleButton.style('font-size', '12px');
   candleButton.style('z-index', '10');
   candleButton.style('background-color', visualizationType === 'candle' ? colors.primary : colors.lightGray);
@@ -235,7 +235,7 @@ function createUI() {
   
   // Box plot button
   boxplotButton = createButton('Box Plot');
-  boxplotButton.position(margin + 860, 47);
+  boxplotButton.position(margin + 850, 47);
   boxplotButton.size(70, 20);
   boxplotButton.style('font-size', '12px');
   boxplotButton.style('z-index', '10');
@@ -1696,16 +1696,14 @@ function drawCandleChart(graphX, graphY, graphWidth, graphHeight, visibleData, m
       
       fill(40, 40, 40, 220);
       noStroke();
-      rect(tooltipX, tooltipY - 45, 140, 90, 5);
+      rect(tooltipX, tooltipY - 45, 140, 70, 5);
       
       fill(255);
       textAlign(LEFT, CENTER);
       textSize(11);
-      text(`Month: ${monthData.month}/${monthData.year}`, tooltipX + 10, tooltipY - 30);
-      text(`Open: ${nf(monthData.open, 0, 1)}`, tooltipX + 10, tooltipY - 15);
-      text(`Close: ${nf(monthData.close, 0, 1)}`, tooltipX + 10, tooltipY);
-      text(`High: ${nf(monthData.high, 0, 1)}`, tooltipX + 10, tooltipY + 15);
-      text(`Low: ${nf(monthData.low, 0, 1)}`, tooltipX + 10, tooltipY + 30);
+      text(`Month: ${monthData.month}/${monthData.year}`, tooltipX + 10, tooltipY - 15);
+      text(`High: ${nf(monthData.high, 0, 1)}`, tooltipX + 10, tooltipY);
+      text(`Low: ${nf(monthData.low, 0, 1)}`, tooltipX + 10, tooltipY + 15);
     }
   });
 }
@@ -1783,30 +1781,25 @@ function drawBoxPlot(graphX, graphY, graphWidth, graphHeight, visibleData, maxAQ
     let q3Y = map(monthData.q3, 0, maxAQI, graphY + graphHeight, graphY);
     let medianY = map(monthData.median, 0, maxAQI, graphY + graphHeight, graphY);
     
-    // Draw the whiskers (vertical lines from min to Q1 and Q3 to max)
+    // Draw the lines (vertical lines from min to Q1 and Q3 to max)
     stroke(100);
-    strokeWeight(1);
-    // Lower whisker
+    strokeWeight(1.5);
+    // Lower line
     line(x, q1Y, x, minY);
-    // Upper whisker
+    // Upper line
     line(x, q3Y, x, maxY);
     
-    // Draw horizontal caps at ends of whiskers
+    // Draw horizontal caps at ends of lines
     let whiskerWidth = boxWidth / 3;
     // Min cap
     line(x - whiskerWidth, minY, x + whiskerWidth, minY);
     // Max cap
     line(x - whiskerWidth, maxY, x + whiskerWidth, maxY);
     
-    // Draw the box (rectangle from Q1 to Q3)
-    let boxColor = color(52, 152, 219, 200);  // Semi-transparent blue
-    fill(boxColor);
-    rect(x - boxWidth/2, q3Y, boxWidth, q1Y - q3Y);
-    
-    // Draw the median line
-    stroke(30);
-    strokeWeight(1.5);
-    line(x - boxWidth/2, medianY, x + boxWidth/2, medianY);
+    // Draw the median as a dot
+    fill(30);
+    noStroke();
+    ellipse(x, medianY, 7, 7);
     
     // Add month label
     if (x > graphX && x < graphX + graphWidth) {

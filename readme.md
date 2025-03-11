@@ -66,15 +66,30 @@ This dataset provides comprehensive air quality measurements that enable explora
 6. Analyze trends in the graph and review the statistics
 
 ## Future Enhancements
-- Add comparison view for multiple cities
 - Implement map-based visualization
 - Include weather data correlation
 - Add more advanced statistical analysis
 - Export functionality for reports
 
 ## Screenshots
-![Air Quality Visualization Screenshot](AQI_SS.png)
-<!-- Replace with an actual screenshot of your visualization -->
+### AQI for O3 in Arizona
+![Air Quality Visualization Screenshot](media/AQI_SS_line.png)
+
+### AQI for CO in Arizona
+![Air Quality Visualization Screenshot](media/AQI_SS_CO.png)
+
+### AQI for NO2 in New York
+![Air Quality Visualization Screenshot](media/AQI_SS.png)
+
+### AQI for O3 in Arizona with bar graph
+![Air Quality Visualization Screenshot](media/AQI_SS_bar.png)
+
+### AQI for O3 in Arizona with box plot
+![Air Quality Visualization Screenshot](media/AQI_SS_box.png)
+
+### AQI comparison for O3 in Arizona and Hawaii
+![Air Quality Visualization Screenshot](media/AQI_SS_compare.png)
+
 
 ## Acknowledgments
 - [Kaggle source](https://www.kaggle.com/datasets/guslovesmath/us-pollution-data-200-to-2022?select=pollution_2000_2023.csv) for air quality data
