@@ -6,8 +6,9 @@ This interactive visualization tool allows users to explore air quality data acr
 ## Features
 - **Location Selection**: Filter data by state and city
 - **Pollutant Selection**: Choose from different pollutants (O3, CO, SO2, NO2)
+- **Location Pollutant Comparison**: Compares a pollutant amongst multiple locations.
 - **Time Range Control**: Interactive slider to select specific date ranges
-- **Dynamic Visualization**: Color-coded line graphs showing pollution trends
+- **Dynamic Visualization**: Color-coded line, bar and box graphs depict pollution trends over time.
 - **Statistical Insights**: View averages, maximums, and minimums for selected data
 - **Interactive Elements**: Hover over data points to see detailed information
 - **Responsive Design**: Beautiful UI with intuitive controls
@@ -39,7 +40,7 @@ This dataset provides comprehensive air quality measurements that enable explora
 ### Setup Instructions
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/air-quality-visualization.git
+   git clone https://github.com/mathur-14/AQI-level-visualization.git
    cd air-quality-visualization
    ```
 
